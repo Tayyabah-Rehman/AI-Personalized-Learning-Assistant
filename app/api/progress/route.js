@@ -1,9 +1,12 @@
-import { adminDb, adminAuth } from "@/lib/firebase-admin";
+export const runtime = "nodejs";
 
 export async function POST(req) {
+  const { getAdminDb, getAdminAuth } = await import("@/lib/firebase-admin");
   const { token, lessonKey, score } = await req.json();
 
   try {
+    const adminAuth = getAdminAuth();
+    const adminDb = getAdminDb();
     const decoded = await adminAuth.verifyIdToken(token);
     const uid = decoded.uid;
 
