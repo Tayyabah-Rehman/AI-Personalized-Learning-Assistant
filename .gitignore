@@ -32,3 +32,6 @@ Thumbs.db
 
 # Vercel
 .vercel
+
+venv/
+package-lock.json
