@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
 import { doc, updateDoc, arrayUnion, getDoc } from "firebase/firestore";
 import { getModuleById } from "@/lib/lessons";
+import { fetchLesson, fetchChat } from "@/lib/api";
 import ReactMarkdown from "react-markdown";
 import Link from "next/link";
 
@@ -37,15 +38,11 @@ export default function LessonClient() {
     setLessonLoading(true);
     setMessages([{ role: "assistant", content: `Hello! I'm your AI tutor for **${lesson.title}**.\n\nThe lesson is loading on the left. Ask me anything once it appears! 🎓` }]);
     try {
-      const res = await fetch("/api/lesson", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lessonTitle: lesson.title, moduleTitle: module.title }),
-      });
-      const data = await res.json();
+      // ── Uses authenticated API call with Firebase token ──
+      const data = await fetchLesson(lesson.title, module.title);
       setLessonContent(data.content);
-    } catch {
-      setLessonContent("⚠️ Failed to load lesson. Please check your API key.");
+    } catch (err) {
+      setLessonContent(`⚠️ ${err.message || "Failed to load lesson. Please check your API key."}`);
     } finally {
       setLessonLoading(false);
     }
@@ -70,23 +67,19 @@ export default function LessonClient() {
     setInput("");
     setChatLoading(true);
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [...messages, userMsg],
-          context: { lessonTitle: selectedLesson?.title, moduleTitle: module?.title, lessonContent },
-        }),
-      });
-      const data = await res.json();
+      // ── Uses authenticated API call with Firebase token ──
+      const data = await fetchChat(
+        [...messages, userMsg],
+        { lessonTitle: selectedLesson?.title, moduleTitle: module?.title, lessonContent }
+      );
       setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
       if (data.isWeakArea && selectedLesson && user) {
         await updateDoc(doc(db, "users", user.uid), {
           weakAreas: arrayUnion(`${module.title}: ${selectedLesson.title}`),
         });
       }
-    } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "Sorry, I had trouble answering. Please try again." }]);
+    } catch (err) {
+      setMessages(prev => [...prev, { role: "assistant", content: `⚠️ ${err.message || "Sorry, try again."}` }]);
     } finally {
       setChatLoading(false);
     }
