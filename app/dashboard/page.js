@@ -15,8 +15,27 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => { if (!loading && !user) router.push("/login"); }, [user, loading, router]);
+
+  // ✅ FIX: Updated useEffect with event listener for progress updates
   useEffect(() => {
-    if (user) getDoc(doc(db, "users", user.uid)).then(d => setUserData(d.data()));
+    if (!user) return;
+
+    const fetchData = () => {
+      getDoc(doc(db, "users", user.uid)).then(d => setUserData(d.data()));
+    };
+
+    fetchData();
+
+    // Listen for progress updates from LessonClient
+    const handleProgressUpdate = () => {
+      fetchData();
+    };
+
+    window.addEventListener('progress-updated', handleProgressUpdate);
+
+    return () => {
+      window.removeEventListener('progress-updated', handleProgressUpdate);
+    };
   }, [user]);
 
   if (loading || !user) return (

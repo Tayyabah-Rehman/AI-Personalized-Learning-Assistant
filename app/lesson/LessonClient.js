@@ -38,7 +38,6 @@ export default function LessonClient() {
     setLessonLoading(true);
     setMessages([{ role: "assistant", content: `Hello! I'm your AI tutor for **${lesson.title}**.\n\nThe lesson is loading on the left. Ask me anything once it appears! 🎓` }]);
     try {
-      // ── Uses authenticated API call with Firebase token ──
       const data = await fetchLesson(lesson.title, module.title);
       setLessonContent(data.content);
     } catch (err) {
@@ -50,7 +49,7 @@ export default function LessonClient() {
 
   const markComplete = async () => {
     if (!user || !selectedLesson) return;
-    const key = `${moduleId}/${selectedLesson.id}`;
+    const key = `${moduleId}_${selectedLesson.id}`;
     if (progress[key]) return;
     const newProgress = { ...progress, [key]: { completedAt: new Date().toISOString(), score: 100 } };
     setProgress(newProgress);
@@ -58,6 +57,8 @@ export default function LessonClient() {
       [`progress.${key}`]: { completedAt: new Date().toISOString(), score: 100 },
       lessonsCompleted: Object.keys(newProgress).length,
     });
+
+    window.dispatchEvent(new Event('progress-updated'));
   };
 
   const sendMessage = async () => {
@@ -67,7 +68,6 @@ export default function LessonClient() {
     setInput("");
     setChatLoading(true);
     try {
-      // ── Uses authenticated API call with Firebase token ──
       const data = await fetchChat(
         [...messages, userMsg],
         { lessonTitle: selectedLesson?.title, moduleTitle: module?.title, lessonContent }
@@ -107,10 +107,16 @@ export default function LessonClient() {
         </div>
         <div className="flex items-center gap-2">
           {selectedLesson && (
-            <button onClick={markComplete}
-              disabled={!!progress[`${moduleId}/${selectedLesson.id}`]}
-              className={`text-xs font-semibold px-4 py-2 rounded-lg transition ${progress[`${moduleId}/${selectedLesson.id}`] ? "bg-green-50 text-green-700 border border-green-200" : "btn-primary"}`}>
-              {progress[`${moduleId}/${selectedLesson.id}`] ? "✅ Completed" : "Mark Complete"}
+            <button
+              onClick={markComplete}
+              disabled={!!progress[`${moduleId}_${selectedLesson.id}`]}
+              className={`text-xs font-semibold px-4 py-2 rounded-lg transition ${
+                progress[`${moduleId}_${selectedLesson.id}`]
+                  ? "bg-green-50 text-green-700 border border-green-200"
+                  : "btn-primary"
+              }`}
+            >
+              {progress[`${moduleId}_${selectedLesson.id}`] ? "✅ Completed" : "Mark Complete"}
             </button>
           )}
           <button onClick={() => setChatOpen(o => !o)}
@@ -125,7 +131,7 @@ export default function LessonClient() {
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 mb-3">Lessons</p>
           <ul className="space-y-0.5 px-2">
             {module.lessons.map((lesson, i) => {
-              const key = `${moduleId}/${lesson.id}`;
+              const key = `${moduleId}_${lesson.id}`;
               const done = !!progress[key];
               return (
                 <li key={lesson.id}>
@@ -157,7 +163,7 @@ export default function LessonClient() {
                 <div className="flex items-center gap-2">
                   <span className="badge badge-blue">{selectedLesson.difficulty}</span>
                   <span className="badge bg-gray-100 text-gray-600">⏱ {selectedLesson.duration} min</span>
-                  {progress[`${moduleId}/${selectedLesson.id}`] && <span className="badge badge-green">✅ Completed</span>}
+                  {progress[`${moduleId}_${selectedLesson.id}`] && <span className="badge badge-green">✅ Completed</span>}
                 </div>
               </div>
               {lessonLoading ? (
