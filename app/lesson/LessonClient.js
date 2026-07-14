@@ -24,13 +24,34 @@ export default function LessonClient() {
   const [chatLoading, setChatLoading] = useState(false);
   const [progress, setProgress] = useState({});
   const [chatOpen, setChatOpen] = useState(true);
+  const [resuming, setResuming] = useState(true); // ✅ NEW: loading state for Firestore fetch
   const chatEndRef = useRef(null);
 
   useEffect(() => { if (!loading && !user) router.push("/login"); }, [user, loading, router]);
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  // Auto-resume: load progress then start next incomplete lesson
   useEffect(() => {
-    if (user) getDoc(doc(db, "users", user.uid)).then(d => setProgress(d.data()?.progress || {}));
-  }, [user]);
+    if (!user || !module) return;
+    setResuming(true); // ✅ Show spinner while fetching
+    getDoc(doc(db, "users", user.uid)).then(d => {
+      const savedProgress = d.data()?.progress || {};
+      setProgress(savedProgress);
+
+      // Find first lesson not yet completed
+      const nextLesson = module.lessons.find(
+        lesson => !savedProgress[`${moduleId}_${lesson.id}`]
+      );
+
+      if (nextLesson) {
+        loadLesson(nextLesson);
+      } else {
+        // All done — open last lesson in review mode
+        loadLesson(module.lessons[module.lessons.length - 1]);
+      }
+      setResuming(false); // ✅ Hide spinner after loading
+    });
+  }, [user, moduleId]);
 
   const loadLesson = async (lesson) => {
     setSelectedLesson(lesson);
@@ -51,6 +72,7 @@ export default function LessonClient() {
     if (!user || !selectedLesson) return;
     const key = `${moduleId}_${selectedLesson.id}`;
     if (progress[key]) return;
+
     const newProgress = { ...progress, [key]: { completedAt: new Date().toISOString(), score: 100 } };
     setProgress(newProgress);
     await updateDoc(doc(db, "users", user.uid), {
@@ -58,7 +80,15 @@ export default function LessonClient() {
       lessonsCompleted: Object.keys(newProgress).length,
     });
 
-    window.dispatchEvent(new Event('progress-updated'));
+    window.dispatchEvent(new Event("progress-updated"));
+
+    // Auto-advance to next lesson after 800ms so user sees ✅ Completed first
+    const currentIndex = module.lessons.findIndex(l => l.id === selectedLesson.id);
+    const nextLesson = module.lessons[currentIndex + 1];
+    if (nextLesson) {
+      setTimeout(() => loadLesson(nextLesson), 800);
+    }
+    // If last lesson — stay, button shows ✅ Completed, module is done
   };
 
   const sendMessage = async () => {
@@ -95,6 +125,18 @@ export default function LessonClient() {
   );
   if (!module) return <div className="p-8">Module not found. <Link href="/dashboard" className="text-blue-600">Go back</Link></div>;
 
+  // ✅ NEW: Show spinner while Firestore is fetching progress
+  if (resuming) {
+    return (
+      <div className="min-h-screen gradient-bg flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="w-12 h-12 border-t-2 border-white rounded-full animate-spin mx-auto mb-4" />
+          <p className="font-medium">Resuming your lesson...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b border-gray-100 px-5 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-50 shadow-sm">
@@ -107,15 +149,9 @@ export default function LessonClient() {
         </div>
         <div className="flex items-center gap-2">
           {selectedLesson && (
-            <button
-              onClick={markComplete}
+            <button onClick={markComplete}
               disabled={!!progress[`${moduleId}_${selectedLesson.id}`]}
-              className={`text-xs font-semibold px-4 py-2 rounded-lg transition ${
-                progress[`${moduleId}_${selectedLesson.id}`]
-                  ? "bg-green-50 text-green-700 border border-green-200"
-                  : "btn-primary"
-              }`}
-            >
+              className={`text-xs font-semibold px-4 py-2 rounded-lg transition ${progress[`${moduleId}_${selectedLesson.id}`] ? "bg-green-50 text-green-700 border border-green-200" : "btn-primary"}`}>
               {progress[`${moduleId}_${selectedLesson.id}`] ? "✅ Completed" : "Mark Complete"}
             </button>
           )}
