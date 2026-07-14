@@ -9,6 +9,8 @@
 
 An AI-powered personalized tutor platform that guides Internee.pk interns through structured learning modules. The AI dynamically generates lesson content, answers questions in real-time, tracks progress per user, and automatically detects weak areas.
 
+## Landing Page
+![Landing Page](Screenshots/Landing%20Page.PNG)
 ---
 
 ## ✨ Features
@@ -147,6 +149,10 @@ ai-learning-assistant/
 | 👁️ Computer Vision | 6 |
 | 💬 NLP | 6 |
 | 🔬 Data Science | 6 |
+
+
+## Module / Lesson Page
+![Module Page](Screenshots/Lesson%20Page.PNG)
 
 ---
 
